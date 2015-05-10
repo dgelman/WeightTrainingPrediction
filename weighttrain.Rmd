@@ -1,0 +1,66 @@
+---
+title: "Weight Lift Prediction"
+author: "David Gelman"
+date: "Thursday, May 07, 2015"
+output: html_document
+---
+
+###Introduction
+This report is for the Coursera Practical Machine Learning course offered as part of the Johns Hopkins Data Science specialization. (https://www.coursera.org/specialization/jhudatascience/1?utm_medium=listingPage)
+
+This work takes the Weight Lifting Exercises dataset from the  available here: http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises.
+The data describes the motion of performing dumbbell curls via 5 methods (one correctly and incorrectly in 4 specified, scripted manners). The motion of the participants was tracked with numerous accelerometers. The goal is to use machine learning algorithms in R to predict which of the 5 bicep curl motions was performed by analysis of the accelerometer data alone.
+
+The paper that cites the relevant research that led to the creation of this data set is here: 
+  
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013. 
+
+### Initialization
+We initialize the required packages, load in the test and training data, removing columns for which the values are all complete. Also, we remove variables that are not not associated with prediction; these include columns that record  the time the exercise was performed or the name of the person performing the exercise.
+
+```{r}
+require(caret)
+require(randomForest)
+
+pmltest <- read.csv("E:/Users/DavidNew/Desktop/pml-testing.csv",na.strings=c("NA",""))
+pmltrain <- read.csv("E:/Users/DavidNew/Desktop/pml-training.csv",na.strings=c("NA",""))
+
+NAs <- apply(pmltrain,2,function(x) {sum(is.na(x))}) 
+
+training<- pmltrain[,which(NAs == 0)]
+testing <- pmltest[,which(NAs == 0)]
+
+training <- training[,-c(1:6)]
+testSet <- testing[,-c(1:6)]
+```
+
+###Partitioning into test, training, and cross-validation sets
+The test set of data is already separate from the test data. We  therefore partition the training data into two subsets, giving 70% of the data for training and 40% for future cross-validation.
+
+```{r}
+trainPartition <- createDataPartition(y = training$classe, p=0.7,list=FALSE)
+trainSet <- training[trainPartition,]
+crossValidationSet <- training[-trainPartition,]
+```
+
+
+###Creating model from training set
+We create the model using random forest method, using k-folds sampling with k of 4. The data item being predicted is the "classe" variable in the training set. This is data item which contains one of the 5 types of bicep curl motion engaged in by the participant.
+```{r}
+mytrControl = trainControl(method = "cv", number = 4)
+modelFinal <- train(trainSet$classe ~.,data = trainSet, method="rf", trControl = mytrControl)
+modelFinal
+```
+
+###Calculate the error using the cross-validation set.
+```{r}
+predicted <- predict(modelFinal, crossValidationSet)
+SampleError <- sum(predicted == crossValidationSet$classe)/nrow(crossValidationSet)
+```
+
+So the out-of-sample Error we get is: `r (1- SampleError)`
+
+```{r}
+1 - SampleError
+```
+
